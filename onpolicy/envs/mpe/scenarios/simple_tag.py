@@ -7,8 +7,10 @@ class Scenario(BaseScenario):
         world = World()
         # set any world properties first
         world.dim_c = 2
-        num_good_agents = args.num_good_agents#1
-        num_adversaries = args.num_adversaries#3
+        num_good_agents = 1
+        # num_good_agents = args.num_good_agents#1
+        # num_adversaries = args.num_adversaries#3
+        num_adversaries = 3
         num_agents = num_adversaries + num_good_agents
         num_landmarks = args.num_landmarks#2
         # add agents
@@ -126,12 +128,13 @@ class Scenario(BaseScenario):
         return rew
 
     def observation(self, agent, world):
-        # get positions of all entities in this agent's reference frame
+        # Get positions of all entities in this agent's reference frame
         entity_pos = []
         for entity in world.landmarks:
             if not entity.boundary:
                 entity_pos.append(entity.state.p_pos - agent.state.p_pos)
-        # communication of all other agents
+        
+        # Communication of all other agents
         comm = []
         other_pos = []
         other_vel = []
@@ -141,4 +144,44 @@ class Scenario(BaseScenario):
             other_pos.append(other.state.p_pos - agent.state.p_pos)
             if not other.adversary:
                 other_vel.append(other.state.p_vel)
-        return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + entity_pos + other_pos + other_vel)
+        
+        # Start forming the observation
+        observation = (
+            [agent.state.p_vel] +              # Agent's velocity
+            [agent.state.p_pos] +              # Agent's position
+            entity_pos +                       # Relative entity positions
+            other_pos +                        # Other agents' positions
+            other_vel                           # Other agents' velocities
+        )
+        
+        # Flatten the observation and ensure it has exactly 18 elements
+        observation = np.concatenate(observation)
+
+        # Pad the observation to 18 dimensions if necessary
+        target_dim = 18
+        if len(observation) < target_dim:
+            # Pad with zeros (or another placeholder if needed)
+            observation = np.pad(observation, (0, target_dim - len(observation)))
+        elif len(observation) > target_dim:
+            # Truncate if somehow observation exceeds 18
+            observation = observation[:target_dim]
+        
+        return observation
+
+    # def observation(self, agent, world):
+    #     # get positions of all entities in this agent's reference frame
+    #     entity_pos = []
+    #     for entity in world.landmarks:
+    #         if not entity.boundary:
+    #             entity_pos.append(entity.state.p_pos - agent.state.p_pos)
+    #     # communication of all other agents
+    #     comm = []
+    #     other_pos = []
+    #     other_vel = []
+    #     for other in world.agents:
+    #         if other is agent: continue
+    #         comm.append(other.state.c)
+    #         other_pos.append(other.state.p_pos - agent.state.p_pos)
+    #         if not other.adversary:
+    #             other_vel.append(other.state.p_vel)
+    #     return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + entity_pos + other_pos + other_vel)
