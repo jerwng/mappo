@@ -26,7 +26,7 @@ echo "Activating Jerry's Python Venv"
 source /home/chenyuanwang01/MAT/Multi-Agent-Transformer/venv/bin/activate
 
 echo "Running train_smac.py"
-bash /home/chenyuanwang01/mappo/onpolicy/scripts/train_mpe_scripts/train_mpe_spread_mat.sh
+bash /home/chenyuanwang01/mappo/onpolicy/scripts/train_mpe_scripts/train_mpe_tag_mat.sh
 
 echo "Deactivating Jerry's Python Venv"
 deactivate
