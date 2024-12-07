@@ -82,16 +82,30 @@ class Runner(object):
         print("observation_space: ", self.envs.observation_space)
         print("action_space: ", self.envs.action_space)
 
-        self.policy = []
-        for agent_id in range(self.num_agents):
-            share_observation_space = self.envs.share_observation_space[agent_id] if self.use_centralized_V else self.envs.observation_space[agent_id]
-            # policy network
-            po = Policy(self.all_args,
-                        self.envs.observation_space[agent_id],
-                        share_observation_space,
-                        self.envs.action_space[agent_id],
-                        device = self.device)
-            self.policy.append(po)
+        self.policy = {}
+
+        # TODO: Remove hardcoded adversary-agent partition
+        adversary_agent_id = 0
+        good_agent_id = 3
+
+        share_observation_space_adversary = self.envs.share_observation_space[adversary_agent_id] if self.use_centralized_V else self.envs.observation_space[adversary_agent_id]
+        share_observation_space_agent = self.envs.share_observation_space[good_agent_id] if self.use_centralized_V else self.envs.observation_space[good_agent_id]
+        
+        # policy network
+        po_adversary = Policy(self.all_args,
+                    self.envs.observation_space[adversary_agent_id],
+                    share_observation_space_adversary,
+                    self.envs.action_space[adversary_agent_id],
+                    device = self.device)
+
+        po_agent = Policy(self.all_args,
+                    self.envs.observation_space[good_agent_id],
+                    share_observation_space_agent,
+                    self.envs.action_space[good_agent_id],
+                    device = self.device)
+        
+        self.policy['adversary'] = po_adversary
+        self.policy['agent'] = po_agent
 
         if self.model_dir is not None:
             self.restore()
@@ -99,8 +113,12 @@ class Runner(object):
         self.trainer = []
         self.buffer = []
         for agent_id in range(self.num_agents):
+            
+            agent_policy_type = self.get_agent_type(agent_id)
+            agent_policy = self.policy[agent_policy_type]
+
             # algorithm
-            tr = TrainAlgo(self.all_args, self.policy[agent_id], device = self.device)
+            tr = TrainAlgo(self.all_args, agent_policy, device = self.device)
             # buffer
             share_observation_space = self.envs.share_observation_space[agent_id] if self.use_centralized_V else self.envs.observation_space[agent_id]
             bu = SeparatedReplayBuffer(self.all_args,
@@ -109,7 +127,14 @@ class Runner(object):
                                        self.envs.action_space[agent_id])
             self.buffer.append(bu)
             self.trainer.append(tr)
-            
+    
+    def get_agent_type(self, agent_id):
+        # TODO: Remove hardcoded adversary-agent partition
+        if agent_id < 3:
+            return 'adversary'
+        
+        return 'agent'
+
     def run(self):
         raise NotImplementedError
 
@@ -194,10 +219,16 @@ class Runner(object):
 
     def restore(self):
         for agent_id in range(self.num_agents):
+
+            agent_policy_type = self.get_agent_type(agent_id)
+            agent_policy = self.policy[agent_policy_type]
+            
+            sel = agent_policy[agent_policy_type]
+
             policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor_agent' + str(agent_id) + '.pt')
-            self.policy[agent_id].actor.load_state_dict(policy_actor_state_dict)
+            agent_policy.actor.load_state_dict(policy_actor_state_dict)
             policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic_agent' + str(agent_id) + '.pt')
-            self.policy[agent_id].critic.load_state_dict(policy_critic_state_dict)
+            agent_policy.critic.load_state_dict(policy_critic_state_dict)
             if self.trainer[agent_id]._use_valuenorm:
                 policy_vnrom_state_dict = torch.load(str(self.model_dir) + '/vnrom_agent' + str(agent_id) + '.pt')
                 self.trainer[agent_id].value_normalizer.load_state_dict(policy_vnrom_state_dict)
