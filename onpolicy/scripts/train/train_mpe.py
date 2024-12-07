@@ -90,6 +90,10 @@ def main(args):
         if all_args.cuda_deterministic:
             torch.backends.cudnn.benchmark = False
             torch.backends.cudnn.deterministic = True
+    elif all_args.mps and torch.backends.mps.is_available():
+        print("choose to use mps...")
+        device = torch.device("mps")
+        torch.set_num_threads(all_args.n_training_threads)
     else:
         print("choose to use cpu...")
         device = torch.device("cpu")

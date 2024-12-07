@@ -16,6 +16,8 @@ def get_config():
             set seed for numpy and torch 
         --cuda
             by default True, will use GPU to train; or else will use CPU; 
+        --mps
+            by default False, will use MPS to train; or else will use CPU; 
         --cuda_deterministic
             by default, make sure random seed effective. if set, bypass such function.
         --n_training_threads <int>
@@ -163,6 +165,7 @@ def get_config():
     parser.add_argument("--experiment_name", type=str, default="check", help="an identifier to distinguish different experiment.")
     parser.add_argument("--seed", type=int, default=1, help="Random seed for numpy/torch")
     parser.add_argument("--cuda", action='store_false', default=True, help="by default True, will use GPU to train; or else will use CPU;")
+    parser.add_argument("--mps", action='store_true', default=False, help="by default False, will use MPS to train; or else will use CPU;")
     parser.add_argument("--cuda_deterministic",
                         action='store_false', default=True, help="by default, make sure random seed effective. if set, bypass such function.")
     parser.add_argument("--n_training_threads", type=int,
