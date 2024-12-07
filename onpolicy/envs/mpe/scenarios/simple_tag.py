@@ -71,14 +71,6 @@ class Scenario(BaseScenario):
         dist_min = agent1.size + agent2.size
         return True if dist < dist_min else False
 
-    def done_callback(self, agent, world):
-        if agent.collide:
-            for a in adversaries:
-                if self.is_collision(a, agent):
-                    return True
-        
-        return False
-
     # return all agents that are not adversaries
     def good_agents(self, world):
         return [agent for agent in world.agents if not agent.adversary]
@@ -87,6 +79,13 @@ class Scenario(BaseScenario):
     def adversaries(self, world):
         return [agent for agent in world.agents if agent.adversary]
 
+    def done_callback(self, agent, world):
+        if agent.collide:
+            for a in self.adversaries(world):
+                if self.is_collision(a, agent):
+                    return True
+        
+        return False
 
     def reward(self, agent, world):
         # Agents are rewarded based on minimum agent distance to each landmark
