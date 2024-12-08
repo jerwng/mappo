@@ -152,6 +152,8 @@ def main(args):
     # run experiments
     if all_args.share_policy:
         from onpolicy.runner.shared.mpe_runner import MPERunner as Runner
+    elif all_args.competitive:
+        from onpolicy.runner.competitive.mpe_runner import MPERunner as Runner
     else:
         from onpolicy.runner.separated.mpe_runner import MPERunner as Runner
 

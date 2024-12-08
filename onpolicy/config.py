@@ -46,6 +46,8 @@ def get_config():
     Network parameters:
         --share_policy
             by default True, all agents will share the same network; set to make training agents use different policies. 
+        --competitive
+            by default False, competitive scenarios where agents on same team will share policy. Requires --share_policy to be False.
         --use_centralized_V
             by default True, use centralized training mode; or else will decentralized training mode.
         --stacked_frames <int>
@@ -190,6 +192,7 @@ def get_config():
     # network parameters
     parser.add_argument("--share_policy", action='store_false',
                         default=True, help='Whether agent share the same policy')
+    parser.add_argument("--competitive", action='store_true', default=False, help='Use for Competitive scenarios. Requires --share_policy to be False.')
     parser.add_argument("--use_centralized_V", action='store_false',
                         default=True, help="Whether to use centralized V function")
     parser.add_argument("--stacked_frames", type=int, default=1,
