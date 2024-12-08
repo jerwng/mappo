@@ -134,20 +134,36 @@ class Runner(object):
         raise NotImplementedError
     
     @torch.no_grad()
-    def compute(self):
+    def compute_adversary(self):
         """Calculate returns for the collected data."""
-        self.trainer.prep_rollout()
+        self.trainer_adversary.prep_rollout()
         if self.algorithm_name == "mat" or self.algorithm_name == "mat_dec":
-            next_values = self.trainer.policy.get_values(np.concatenate(self.buffer.share_obs[-1]),
-                                                        np.concatenate(self.buffer.obs[-1]),
-                                                        np.concatenate(self.buffer.rnn_states_critic[-1]),
-                                                        np.concatenate(self.buffer.masks[-1]))
+            next_values = self.trainer_adversary.policy.get_values(np.concatenate(self.buffer_adversary.share_obs[-1]),
+                                                        np.concatenate(self.buffer_adversary.obs[-1]),
+                                                        np.concatenate(self.buffer_adversary.rnn_states_critic[-1]),
+                                                        np.concatenate(self.buffer_adversary.masks[-1]))
         else:
-            next_values = self.trainer.policy.get_values(np.concatenate(self.buffer.share_obs[-1]),
-                                                        np.concatenate(self.buffer.rnn_states_critic[-1]),
-                                                        np.concatenate(self.buffer.masks[-1]))
+            next_values = self.trainer_adversary.policy.get_values(np.concatenate(self.buffer_adversary.share_obs[-1]),
+                                                        np.concatenate(self.buffer_adversary.rnn_states_critic[-1]),
+                                                        np.concatenate(self.buffer_adversary.masks[-1]))
         next_values = np.array(np.split(_t2n(next_values), self.n_rollout_threads))
-        self.buffer.compute_returns(next_values, self.trainer.value_normalizer)
+        self.buffer_adversary.compute_returns(next_values, self.trainer_adversary.value_normalizer)
+
+    @torch.no_grad()
+    def compute_good_agent(self):
+        """Calculate returns for the collected data."""
+        self.trainer_good_agent.prep_rollout()
+        if self.algorithm_name == "mat" or self.algorithm_name == "mat_dec":
+            next_values = self.trainer_good_agent.policy.get_values(np.concatenate(self.buffer_good_agent.share_obs[-1]),
+                                                        np.concatenate(self.buffer_good_agent.obs[-1]),
+                                                        np.concatenate(self.buffer_good_agent.rnn_states_critic[-1]),
+                                                        np.concatenate(self.buffer_good_agent.masks[-1]))
+        else:
+            next_values = self.trainer_good_agent.policy.get_values(np.concatenate(self.buffer_good_agent.share_obs[-1]),
+                                                        np.concatenate(self.buffer_good_agent.rnn_states_critic[-1]),
+                                                        np.concatenate(self.buffer_good_agent.masks[-1]))
+        next_values = np.array(np.split(_t2n(next_values), self.n_rollout_threads))
+        self.buffer_good_agent.compute_returns(next_values, self.trainer_good_agent.value_normalizer)
     
     def train(self):
         """Train policies with data in buffer. """
