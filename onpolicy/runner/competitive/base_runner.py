@@ -165,11 +165,18 @@ class Runner(object):
         next_values = np.array(np.split(_t2n(next_values), self.n_rollout_threads))
         self.buffer_good_agent.compute_returns(next_values, self.trainer_good_agent.value_normalizer)
     
-    def train(self):
-        """Train policies with data in buffer. """
-        self.trainer.prep_training()
-        train_infos = self.trainer.train(self.buffer)      
-        self.buffer.after_update()
+    def train_adversary(self):
+        """Train adversary policies with data in buffer. """
+        self.trainer_adversary.prep_training()
+        train_infos = self.trainer_adversary.train(self.buffer_adversary)      
+        self.buffer_adversary.after_update()
+        return train_infos
+
+    def train_good_agent(self):
+        """Train good agent policies with data in buffer. """
+        self.trainer_good_agent.prep_training()
+        train_infos = self.trainer_good_agent.train(self.buffer_good_agent)      
+        self.buffer_good_agent.after_update()
         return train_infos
 
     def save(self, episode=0):
