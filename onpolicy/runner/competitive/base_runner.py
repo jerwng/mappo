@@ -21,6 +21,8 @@ class Runner(object):
         self.eval_envs = config['eval_envs']
         self.device = config['device']
         self.num_agents = config['num_agents']
+        self.num_good_agents = config['num_good_agents']
+        self.num_adversaries = config['num_adversaries']
         if config.__contains__("render_envs"):
             self.render_envs = config['render_envs']       
 
@@ -70,33 +72,47 @@ class Runner(object):
             from onpolicy.algorithms.r_mappo.r_mappo import R_MAPPO as TrainAlgo
             from onpolicy.algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
 
-        share_observation_space = self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0]
+        adversary_id = 0
+        good_agent_id = self.num_adversaries # Good agents come after adversary agents
 
+        share_observation_space_adversary = self.envs.share_observation_space[adversary_id] if self.use_centralized_V else self.envs.observation_space[adversary_id]
+        share_observation_space_good_agent = self.envs.share_observation_space[good_agent_id] if self.use_centralized_V else self.envs.observation_space[good_agent_id]
+        
         print("obs_space: ", self.envs.observation_space)
         print("share_obs_space: ", self.envs.share_observation_space)
         print("act_space: ", self.envs.action_space)
         
         # policy network
         if self.algorithm_name == "mat" or self.algorithm_name == "mat_dec":
-            self.policy = Policy(self.all_args, self.envs.observation_space[0], share_observation_space, self.envs.action_space[0], self.num_agents, device = self.device)
+            self.policy_adversary = Policy(self.all_args, self.envs.observation_space[adversary_agent_id], share_observation_space_adversary, self.envs.action_space[adversary_id], self.num_adversaries, device = self.device)
+            self.policy_good_agent = Policy(self.all_args, self.envs.observation_space[good_agent_id], share_observation_space_good_agent, self.envs.action_space[good_agent_id], self.num_good_agents, device = self.device)
         else:
-            self.policy = Policy(self.all_args, self.envs.observation_space[0], share_observation_space, self.envs.action_space[0], device = self.device)
+            self.policy_adversary = Policy(self.all_args, self.envs.observation_space[adversary_agent_id], share_observation_space_adversary, self.envs.action_space[adversary_id], device = self.device)
+            self.policy_good_agent = Policy(self.all_args, self.envs.observation_space[good_agent_id], share_observation_space_good_agent, self.envs.action_space[good_agent_id], device = self.device)
 
         if self.model_dir is not None:
             self.restore(self.model_dir)
 
         # algorithm
         if self.algorithm_name == "mat" or self.algorithm_name == "mat_dec":
-            self.trainer = TrainAlgo(self.all_args, self.policy, self.num_agents, device = self.device)
+            self.trainer_adversary = TrainAlgo(self.all_args, self.policy_adversary, self.num_adversaries, device = self.device)
+            self.trainer_good_agent = TrainAlgo(self.all_args, self.policy_good_agent, self.num_good_agents, device = self.device)
         else:
-            self.trainer = TrainAlgo(self.all_args, self.policy, device = self.device)
+            self.trainer_adversary = TrainAlgo(self.all_args, self.policy_adversary, device = self.device)
+            self.trainer_good_agent = TrainAlgo(self.all_args, self.policy_good_agent, device = self.device)
         
         # buffer
-        self.buffer = SharedReplayBuffer(self.all_args,
-                                        self.num_agents,
-                                        self.envs.observation_space[0],
-                                        share_observation_space,
-                                        self.envs.action_space[0])
+        self.buffer_adversary = SharedReplayBuffer(self.all_args,
+                                        self.num_adversaries,
+                                        self.envs.observation_space[adversary_agent_id],
+                                        share_observation_space_adversary,
+                                        self.envs.action_space[adversary_agent_id])
+
+        self.buffer_good_agent = SharedReplayBuffer(self.all_args,
+                                        self.num_good_agents,
+                                        self.envs.observation_space[good_agent_id],
+                                        share_observation_space_good_agent,
+                                        self.envs.action_space[good_agent_id])
 
     def run(self):
         """Collect training data, perform training updates, and evaluate policy."""
