@@ -50,7 +50,8 @@ class Runner(object):
         self.log_interval = self.all_args.log_interval
 
         # dir
-        self.model_dir = self.all_args.model_dir
+        self.model_dir_adversary = self.all_args.model_dir_adversary
+        self.model_dir_good_agent = self.all_args.model_dir_good_agent
 
         if self.use_wandb:
             self.save_dir = str(wandb.run.dir)
@@ -94,8 +95,8 @@ class Runner(object):
             self.policy_adversary = Policy(self.all_args, self.envs.observation_space[adversary_agent_id], share_observation_space_adversary, self.envs.action_space[adversary_id], device = self.device)
             self.policy_good_agent = Policy(self.all_args, self.envs.observation_space[good_agent_id], share_observation_space_good_agent, self.envs.action_space[good_agent_id], device = self.device)
 
-        if self.model_dir is not None:
-            self.restore(self.model_dir)
+        if self.model_dir_adversary is not None and self.model_dir_good_agent is not None:
+            self.restore(self.model_dir_adversary, self.model_dir_good_agent)
 
         # algorithm
         if self.algorithm_name == "mat" or self.algorithm_name == "mat_dec":
@@ -199,16 +200,23 @@ class Runner(object):
             policy_critic_good_agent = self.trainer_good_agent.policy.critic
             torch.save(policy_critic_good_agent.state_dict(), str(self.save_dir_good_agent) + "/critic.pt")
 
-    def restore(self, model_dir):
+    def restore(self, model_dir_adversary, model_dir_good_agent):
         """Restore policy's networks from a saved model."""
         if self.algorithm_name == "mat" or self.algorithm_name == "mat_dec":
-            self.policy.restore(model_dir)
+            self.policy_adversary.restore(model_dir_adversary)
+            self.policy_good_agent.restore(model_dir_good_agent)
         else:
-            policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor.pt')
-            self.policy.actor.load_state_dict(policy_actor_state_dict)
+            policy_actor_state_dict_adversary = torch.load(str(self.model_dir_adversary) + '/actor.pt')
+            self.policy_adversary.actor.load_state_dict(policy_actor_state_dict_adversary)
             if not self.all_args.use_render:
-                policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic.pt')
-                self.policy.critic.load_state_dict(policy_critic_state_dict)
+                policy_critic_state_dict_adversary = torch.load(str(self.model_dir_adversary) + '/critic.pt')
+                self.policy_adversary.critic.load_state_dict(policy_critic_state_dict_adversary)
+
+            policy_actor_state_dict_good_agent = torch.load(str(self.model_dir_good_agent) + '/actor.pt')
+            self.policy_good_agent.actor.load_state_dict(policy_actor_state_dict_good_agent)
+            if not self.all_args.use_render:
+                policy_critic_state_dict_good_agent = torch.load(str(self.model_dir_good_agent) + '/critic.pt')
+                self.policy_good_agent.critic.load_state_dict(policy_critic_state_dict_good_agent)
 
     def log_train(self, train_infos, total_num_steps):
         """

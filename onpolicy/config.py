@@ -294,6 +294,8 @@ def get_config():
 
     # pretrained parameters
     parser.add_argument("--model_dir", type=str, default=None, help="by default None. set the path to pretrained model.")
+    parser.add_argument("--model_dir_adversary", type=str, default=None, help="by default None. set the path to pretrained adversary model.")
+    parser.add_argument("--model_dir_good_agent", type=str, default=None, help="by default None. set the path to pretrained good agent model.")
     
     # add for transformer
     parser.add_argument("--encode_state", action='store_true', default=False)
