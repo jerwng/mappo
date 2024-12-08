@@ -55,6 +55,10 @@ def parse_args(args, parser):
     parser.add_argument("--num_landmarks", type=int, default=3)
     parser.add_argument('--num_agents', type=int,
                         default=2, help="number of players")
+    parser.add_argument('--num_good_agents', type=int,
+                        default=2, help="number of good agents")
+    parser.add_argument('--num_adversaries', type=int,
+                        default=0, help="number of good agents")
 
     all_args = parser.parse_known_args(args)[0]
 
@@ -139,12 +143,16 @@ def main(args):
     envs = make_train_env(all_args)
     eval_envs = make_eval_env(all_args) if all_args.use_eval else None
     num_agents = all_args.num_agents
+    num_good_agents = all_args.num_good_agents
+    num_adversaries = all_args.num_adversaries
 
     config = {
         "all_args": all_args,
         "envs": envs,
         "eval_envs": eval_envs,
         "num_agents": num_agents,
+        "num_good_agents": num_good_agents,
+        "num_adversaries": num_adversaries,
         "device": device,
         "run_dir": run_dir
     }
@@ -154,6 +162,7 @@ def main(args):
         from onpolicy.runner.shared.mpe_runner import MPERunner as Runner
     elif all_args.competitive:
         from onpolicy.runner.competitive.mpe_runner import MPERunner as Runner
+        return
     else:
         from onpolicy.runner.separated.mpe_runner import MPERunner as Runner
 

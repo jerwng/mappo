@@ -7,10 +7,9 @@ class Scenario(BaseScenario):
         world = World()
         # set any world properties first
         world.dim_c = 2
-        num_good_agents = 1
-        # num_good_agents = args.num_good_agents#1
-        # num_adversaries = args.num_adversaries#3
-        num_adversaries = 3
+        num_good_agents = args.num_good_agents#1
+        num_adversaries = args.num_adversaries#3
+
         num_agents = num_adversaries + num_good_agents
         num_landmarks = args.num_landmarks#2
         # add agents
