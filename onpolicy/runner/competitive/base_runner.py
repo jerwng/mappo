@@ -61,9 +61,13 @@ class Runner(object):
             if not os.path.exists(self.log_dir):
                 os.makedirs(self.log_dir)
             self.writter = SummaryWriter(self.log_dir)
-            self.save_dir = str(self.run_dir / 'models')
-            if not os.path.exists(self.save_dir):
-                os.makedirs(self.save_dir)
+            self.save_dir_adversary = str(self.run_dir / 'models_adversary')
+            self.save_dir_good_agent = str(self.run_dir / 'models_good_agent')
+            if not os.path.exists(self.save_dir_adversary):
+                os.makedirs(self.save_dir_adversary)
+
+            if not os.path.exists(self.save_dir_good_agent):
+                os.makedirs(self.save_dir_good_agent)
 
         if self.algorithm_name == "mat" or self.algorithm_name == "mat_dec":
             from onpolicy.algorithms.mat.mat_trainer import MATTrainer as TrainAlgo
@@ -182,12 +186,18 @@ class Runner(object):
     def save(self, episode=0):
         """Save policy's actor and critic networks."""
         if self.algorithm_name == "mat" or self.algorithm_name == "mat_dec":
-            self.policy.save(self.save_dir, episode)
+            self.policy_adversary.save(self.save_dir_adversary, episode)
+            self.policy_good_agent.save(self.save_dir_good_agent, episode)
         else:
-            policy_actor = self.trainer.policy.actor
-            torch.save(policy_actor.state_dict(), str(self.save_dir) + "/actor.pt")
-            policy_critic = self.trainer.policy.critic
-            torch.save(policy_critic.state_dict(), str(self.save_dir) + "/critic.pt")
+            policy_actor_adversary = self.trainer_adversary.policy.actor
+            torch.save(policy_actor_adversary.state_dict(), str(self.save_dir_adversary) + "/actor.pt")
+            policy_actor_good_agent = self.trainer_good_agent.policy.actor
+            torch.save(policy_actor_good_agent.state_dict(), str(self.save_dir_good_agent) + "/actor.pt")
+
+            policy_critic_adversary = self.trainer_adversary.policy.critic
+            torch.save(policy_critic_adversary.state_dict(), str(self.save_dir_adversary) + "/critic.pt")
+            policy_critic_good_agent = self.trainer_good_agent.policy.critic
+            torch.save(policy_critic_good_agent.state_dict(), str(self.save_dir_good_agent) + "/critic.pt")
 
     def restore(self, model_dir):
         """Restore policy's networks from a saved model."""
