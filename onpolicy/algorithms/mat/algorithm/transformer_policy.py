@@ -29,7 +29,7 @@ class TransformerPolicy:
             self.action_type = 'Discrete'
 
         self.obs_dim = get_shape_from_obs_space(obs_space)[0]
-        self.share_obs_dim = get_shape_from_obs_space(cent_obs_space)[0]
+        self.share_obs_dim = self.obs_dim * num_agents
 
         if self.action_type == 'Discrete':
             self.act_dim = act_space.n
