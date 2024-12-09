@@ -162,7 +162,6 @@ def main(args):
         from onpolicy.runner.shared.mpe_runner import MPERunner as Runner
     elif all_args.competitive:
         from onpolicy.runner.competitive.mpe_runner import MPERunner as Runner
-        return
     else:
         from onpolicy.runner.separated.mpe_runner import MPERunner as Runner
 
