@@ -82,15 +82,25 @@ class MPERunner(Runner):
         # reset env
         obs = self.envs.reset()
 
+        obs_adversary = obs[:, 0:self.num_adversaries]
+        obs_good_agent = obs[:, self.num_adversaries:]
+
         # replay buffer
         if self.use_centralized_V:
-            share_obs = obs.reshape(self.n_rollout_threads, -1)
-            share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
+            share_obs_adversary = obs_adversary.reshape(self.n_rollout_threads, -1)
+            share_obs_adversary = np.expand_dims(share_obs_adversary, 1).repeat(self.num_adversaries, axis=1)
+            
+            share_obs_good_agent = obs_good_agent.reshape(self.n_rollout_threads, -1)
+            share_obs_good_agent = np.expand_dims(share_obs_good_agent, 1).repeat(self.num_good_agents, axis=1)
         else:
-            share_obs = obs
+            share_obs_adversary = obs_adversary
+            share_obs_good_agent = obs_good_agent
 
-        self.buffer.share_obs[0] = share_obs.copy()
-        self.buffer.obs[0] = obs.copy()
+        self.buffer_adversary.share_obs[0] = share_obs_adversary.copy()
+        self.buffer_adversary.obs[0] = obs_adversary.copy()
+
+        self.buffer_good_agent.share_obs[0] = share_obs_good_agent.copy()
+        self.buffer_good_agent.obs[0] = obs_good_agent.copy()
 
     @torch.no_grad()
     def collect(self, step):
