@@ -103,14 +103,14 @@ class MPERunner(Runner):
         self.buffer_good_agent.obs[0] = obs_good_agent.copy()
 
     @torch.no_grad()
-    def collect(self, step):
-        self.trainer.prep_rollout()
+    def collect_adversary(self, step):
+        self.trainer_adversary.prep_rollout()
         value, action, action_log_prob, rnn_states, rnn_states_critic \
-            = self.trainer.policy.get_actions(np.concatenate(self.buffer.share_obs[step]),
-                            np.concatenate(self.buffer.obs[step]),
-                            np.concatenate(self.buffer.rnn_states[step]),
-                            np.concatenate(self.buffer.rnn_states_critic[step]),
-                            np.concatenate(self.buffer.masks[step]))
+            = self.trainer_adversary.policy.get_actions(np.concatenate(self.buffer_adversary.share_obs[step]),
+                            np.concatenate(self.buffer_adversary.obs[step]),
+                            np.concatenate(self.buffer_adversary.rnn_states[step]),
+                            np.concatenate(self.buffer_adversary.rnn_states_critic[step]),
+                            np.concatenate(self.buffer_adversary.masks[step]))
         # [self.envs, agents, dim]
         values = np.array(np.split(_t2n(value), self.n_rollout_threads))
         actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
@@ -118,15 +118,45 @@ class MPERunner(Runner):
         rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
         rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
         # rearrange action
-        if self.envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
-            for i in range(self.envs.action_space[0].shape):
-                uc_actions_env = np.eye(self.envs.action_space[0].high[i] + 1)[actions[:, :, i]]
+        if self.envs.action_space[self.adversary_id].__class__.__name__ == 'MultiDiscrete':
+            for i in range(self.envs.action_space[self.adversary_id].shape):
+                uc_actions_env = np.eye(self.envs.action_space[self.adversary_id].high[i] + 1)[actions[:, :, i]]
                 if i == 0:
                     actions_env = uc_actions_env
                 else:
                     actions_env = np.concatenate((actions_env, uc_actions_env), axis=2)
-        elif self.envs.action_space[0].__class__.__name__ == 'Discrete':
-            actions_env = np.squeeze(np.eye(self.envs.action_space[0].n)[actions], 2)
+        elif self.envs.action_space[self.adversary_id].__class__.__name__ == 'Discrete':
+            actions_env = np.squeeze(np.eye(self.envs.action_space[self.adversary_id].n)[actions], 2)
+        else:
+            raise NotImplementedError
+
+        return values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env
+
+    @torch.no_grad()
+    def collect_good_agent(self, step):
+        self.trainer_good_agent.prep_rollout()
+        value, action, action_log_prob, rnn_states, rnn_states_critic \
+            = self.trainer_good_agent.policy.get_actions(np.concatenate(self.buffer_good_agent.share_obs[step]),
+                            np.concatenate(self.buffer_good_agent.obs[step]),
+                            np.concatenate(self.buffer_good_agent.rnn_states[step]),
+                            np.concatenate(self.buffer_good_agent.rnn_states_critic[step]),
+                            np.concatenate(self.buffer_good_agent.masks[step]))
+        # [self.envs, agents, dim]
+        values = np.array(np.split(_t2n(value), self.n_rollout_threads))
+        actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
+        action_log_probs = np.array(np.split(_t2n(action_log_prob), self.n_rollout_threads))
+        rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
+        rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
+        # rearrange action
+        if self.envs.action_space[self.good_agent_id].__class__.__name__ == 'MultiDiscrete':
+            for i in range(self.envs.action_space[self.good_agent_id].shape):
+                uc_actions_env = np.eye(self.envs.action_space[self.good_agent_id].high[i] + 1)[actions[:, :, i]]
+                if i == 0:
+                    actions_env = uc_actions_env
+                else:
+                    actions_env = np.concatenate((actions_env, uc_actions_env), axis=2)
+        elif self.envs.action_space[self.good_agent_id].__class__.__name__ == 'Discrete':
+            actions_env = np.squeeze(np.eye(self.envs.action_space[self.good_agent_id].n)[actions], 2)
         else:
             raise NotImplementedError
 
