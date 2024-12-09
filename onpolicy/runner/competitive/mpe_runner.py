@@ -21,23 +21,33 @@ class MPERunner(Runner):
 
         for episode in range(episodes):
             if self.use_linear_lr_decay:
-                self.trainer.policy.lr_decay(episode, episodes)
+                self.train_adversary.policy.lr_decay(episode, episodes)
+                self.train_good_agent.policy.lr_decay(episode, episodes)
 
             for step in range(self.episode_length):
                 # Sample actions
-                values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env = self.collect(step)
+                values_ad, actions_ad, action_log_probs_ad, rnn_states_ad, rnn_states_critic_ad, actions_env_ad = self.collect_adversary(step)
+                values_ga, actions_ga, action_log_probs_ga, rnn_states_ga, rnn_states_critic_ga, actions_env_ga = self.collect_good_agent(step)
+
+                actions_env = np.concatenate((actions_env_ad, actions_env_ga), axis=1)
                     
                 # Obser reward and next obs
-                obs, rewards, dones, infos = self.envs.step(actions_env)
+                obs_ad, rewards_ad, dones_ad, infos_ad = self.envs.step(actions_env)
+                obs_ga, rewards_ga, dones_ga, infos_ga = self.envs.step(actions_env)
 
-                data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
+                data_ad = obs_ad, rewards_ad, dones_ad, infos_ad, values_ad, actions_ad, action_log_probs_ad, rnn_states_ad, rnn_states_critic_ad
+                data_ga = obs_ga, rewards_ga, dones_ga, infos_ga, values_ga, actions_ga, action_log_probs_ga, rnn_states_ga, rnn_states_critic_ga
 
                 # insert data into buffer
-                self.insert(data)
+                self.insert_adversary(data_ad)
+                self.insert_good_agent(data_ga)
 
             # compute return and update network
-            self.compute()
-            train_infos = self.train()
+            self.compute_adversary()
+            self.compute_good_agent()
+
+            train_infos_ad = self.train_adversary()
+            train_infos_ga = self.train_good_agent()
             
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
@@ -63,15 +73,23 @@ class MPERunner(Runner):
                     env_infos = {}
                     for agent_id in range(self.num_agents):
                         idv_rews = []
+
+                        infos = infos_ad if agent_id < self.good_agent_id else infos_ga
+
                         for info in infos:
                             if 'individual_reward' in info[agent_id].keys():
                                 idv_rews.append(info[agent_id]['individual_reward'])
                         agent_k = 'agent%i/individual_rewards' % agent_id
                         env_infos[agent_k] = idv_rews
 
-                train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
-                print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
-                self.log_train(train_infos, total_num_steps)
+                train_infos_ad["average_episode_rewards"] = np.mean(self.buffer_adversary.rewards) * self.episode_length
+                print("average adversary episode rewards is {}".format(train_infos_ad["average_episode_rewards"]))
+                self.log_train(train_infos_ad, total_num_steps)
+
+                train_infos_ga["average_episode_rewards"] = np.mean(self.buffer_good_agent.rewards) * self.episode_length
+                print("average good agent episode rewards is {}".format(train_infos_ga["average_episode_rewards"]))
+                self.log_train(train_infos_ga, total_num_steps)
+
                 self.log_env(env_infos, total_num_steps)
 
             # eval
@@ -82,8 +100,8 @@ class MPERunner(Runner):
         # reset env
         obs = self.envs.reset()
 
-        obs_adversary = obs[:, 0:self.num_adversaries]
-        obs_good_agent = obs[:, self.num_adversaries:]
+        obs_adversary = obs[:, :self.good_agent_id]
+        obs_good_agent = obs[:, self.good_agent_id:]
 
         # replay buffer
         if self.use_centralized_V:
@@ -165,10 +183,16 @@ class MPERunner(Runner):
     def insert_adversary(self, data):
         obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
 
+        dones = dones[:, :self.good_agent_id]
+        obs = obs[:, :self.good_agent_id]
+        rewards = rewards[:, :self.good_agent_id]
+
+
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
-        rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
+        rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer_adversary.rnn_states_critic.shape[3:]), dtype=np.float32)
         masks = np.ones((self.n_rollout_threads, self.num_adversaries, 1), dtype=np.float32)
         masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
+
 
         if self.use_centralized_V:
             share_obs = obs.reshape(self.n_rollout_threads, -1)
@@ -181,8 +205,12 @@ class MPERunner(Runner):
     def insert_good_agent(self, data):
         obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
 
+        dones = dones[:, self.good_agent_id:]
+        obs = obs[:, self.good_agent_id:]
+        rewards = rewards[:, self.good_agent_id:]
+
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
-        rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
+        rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer_good_agent.rnn_states_critic.shape[3:]), dtype=np.float32)
         masks = np.ones((self.n_rollout_threads, self.num_good_agents, 1), dtype=np.float32)
         masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
