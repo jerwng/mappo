@@ -79,10 +79,10 @@ class Scenario(BaseScenario):
         return [agent for agent in world.agents if agent.adversary]
 
     def done_callback(self, agent, world):
-        if agent.collide:
-            for a in self.adversaries(world):
-                if self.is_collision(a, agent):
-                    return True
+        # if agent.collide:
+        #     for a in self.adversaries(world):
+        #         if self.is_collision(a, agent):
+        #             return True
         
         return False
 
