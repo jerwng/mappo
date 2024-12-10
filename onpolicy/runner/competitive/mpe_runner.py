@@ -4,6 +4,7 @@ import torch
 from onpolicy.runner.competitive.base_runner import Runner
 import wandb
 import imageio
+import subprocess
 
 def _t2n(x):
     return x.detach().cpu().numpy()
@@ -18,6 +19,9 @@ class MPERunner(Runner):
 
         start = time.time()
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
+
+        # If false, train good agent
+        should_train_adversary = True
 
         for episode in range(episodes):
             if self.use_linear_lr_decay:
@@ -43,11 +47,13 @@ class MPERunner(Runner):
                 self.insert_good_agent(data_ga)
 
             # compute return and update network
-            self.compute_adversary()
-            self.compute_good_agent()
-
-            train_infos_ad = self.train_adversary()
-            train_infos_ga = self.train_good_agent()
+            if self.competitive_training_interval == 0 or should_train_adversary:
+                self.compute_adversary()
+                train_infos_ad = self.train_adversary()
+            
+            if self.competitive_training_interval == 0 or not should_train_adversary:
+                self.compute_good_agent()
+                train_infos_ga = self.train_good_agent()
             
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
@@ -59,7 +65,8 @@ class MPERunner(Runner):
             # log information
             if episode % self.log_interval == 0:
                 end = time.time()
-                print("\n Scenario {} Algo {} Exp {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
+
+                subprocess.run(["echo", "\n Scenario {} Algo {} Exp {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
                         .format(self.all_args.scenario_name,
                                 self.algorithm_name,
                                 self.experiment_name,
@@ -67,7 +74,7 @@ class MPERunner(Runner):
                                 episodes,
                                 total_num_steps,
                                 self.num_env_steps,
-                                int(total_num_steps / (end - start))))
+                                int(total_num_steps / (end - start)))])
 
                 if self.env_name == "MPE":
                     env_infos = {}
@@ -82,19 +89,27 @@ class MPERunner(Runner):
                         agent_k = 'agent%i/individual_rewards' % agent_id
                         env_infos[agent_k] = idv_rews
 
-                train_infos_ad["average_episode_rewards"] = np.mean(self.buffer_adversary.rewards) * self.episode_length
-                print("average adversary episode rewards is {}".format(train_infos_ad["average_episode_rewards"]))
-                self.log_train(train_infos_ad, total_num_steps)
+                if self.competitive_training_interval == 0 or should_train_adversary:
+                    train_infos_ad["average_episode_rewards"] = np.mean(self.buffer_adversary.rewards) * self.episode_length
+                    train_infos_ad["average_episode_rewards"] = np.mean(self.buffer_adversary.rewards) * self.episode_length
+                    subprocess.run(["echo", "average adversary episode rewards is {}".format(train_infos_ad["average_episode_rewards"])])
+                    self.log_train(train_infos_ad, total_num_steps)
 
-                train_infos_ga["average_episode_rewards"] = np.mean(self.buffer_good_agent.rewards) * self.episode_length
-                print("average good agent episode rewards is {}".format(train_infos_ga["average_episode_rewards"]))
-                self.log_train(train_infos_ga, total_num_steps)
+                if self.competitive_training_interval == 0 or not should_train_adversary:
+                    train_infos_ga["average_episode_rewards"] = np.mean(self.buffer_good_agent.rewards) * self.episode_length
+                    subprocess.run(["echo", "average good agent episode rewards is {}".format(train_infos_ga["average_episode_rewards"])])
+                    self.log_train(train_infos_ga, total_num_steps)
 
                 self.log_env(env_infos, total_num_steps)
 
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
+            
+            # Flip training between adversary and good agent
+            if self.competitive_training_interval != 0 and episode != 0  and episode % self.competitive_training_interval == 0:
+                subprocess.run(["echo", f"episode: {episode}, flipping should_train_adversary from {should_train_adversary} to {not should_train_adversary}"])
+                should_train_adversary = not should_train_adversary
 
     def warmup(self):
         # reset env

@@ -59,6 +59,8 @@ def parse_args(args, parser):
                         default=2, help="number of good agents")
     parser.add_argument('--num_adversaries', type=int,
                         default=0, help="number of good agents")
+    parser.add_argument('--competitive_training_interval', type=int, 
+                        default=0, help="Competitive only. Number of episodes for each agent training interval. If 0, train both simultaneously")
 
     all_args = parser.parse_known_args(args)[0]
 
@@ -145,6 +147,7 @@ def main(args):
     num_agents = all_args.num_agents
     num_good_agents = all_args.num_good_agents
     num_adversaries = all_args.num_adversaries
+    competitive_training_interval = all_args.competitive_training_interval
 
     config = {
         "all_args": all_args,
@@ -153,6 +156,7 @@ def main(args):
         "num_agents": num_agents,
         "num_good_agents": num_good_agents,
         "num_adversaries": num_adversaries,
+        "competitive_training_interval": competitive_training_interval,
         "device": device,
         "run_dir": run_dir
     }

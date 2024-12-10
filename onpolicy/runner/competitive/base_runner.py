@@ -24,7 +24,9 @@ class Runner(object):
         self.num_good_agents = config['num_good_agents']
         self.num_adversaries = config['num_adversaries']
         if config.__contains__("render_envs"):
-            self.render_envs = config['render_envs']       
+            self.render_envs = config['render_envs']
+
+        self.competitive_training_interval = config['competitive_training_interval']    
 
         # parameters
         self.env_name = self.all_args.env_name
